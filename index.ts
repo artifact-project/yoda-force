@@ -1,5 +1,3 @@
-import parse from './src/parse/parse';
+import {YodaForce} from './src/force/force';
 
-export default {
-	parse,
-};
+export default YodaForce;

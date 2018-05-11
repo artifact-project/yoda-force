@@ -22,8 +22,7 @@ export class WebdriveBrowser implements BrowserAPI, BrowserConfig {
 	}
 
 	async setContent(html) {
-		throw new Error('Not supported');
-		return true;
+		return Promise.reject(new Error('Not supported'));
 	}
 
 	async url(u) {
