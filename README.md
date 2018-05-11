@@ -6,7 +6,7 @@ BDD test runner for UI testing.
 ### Usage
 
 ```ts
-import YodaForce from 'yoda-force'
+import YodaForce from 'yoda-force';
 
 const force = new YodaForce({
 	domIdAttr: 'data-test-id',
@@ -14,8 +14,11 @@ const force = new YodaForce({
 		'globals': {
 			'Список контактов': {ctx: 'contacts', loc: '#contacts'},
 		},
+		'page': {
+			'Мои контакты': '/contacts/my/',
+		},
 		'while': {
-			'Контактов': '#contacts-count',
+			'Контактов': {ctx: 'contacts', loc: '#contacts-count'},
 		},
 		'contacts/**/*': {
 			'Удалить': '#contacts #remove',
