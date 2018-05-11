@@ -2,12 +2,15 @@ import {parse} from './parse';
 
 const ctx = {
 	'globals': {
+		'RANDOM': 'RANDOM',
+		'Число Х': '#number-x',
+
 		'Cписке приложений': {
 			loc: '#app-list',
 			ctx: 'app-list',
 		},
 
-		'Список|Списка|Приложения': '#app-list',
+		'Список|Списка|Приложени[яй]': '#app-list',
 		'Создать приложение': {
 			loc: '#create-app',
 			ctx: 'app-editor',
@@ -64,12 +67,28 @@ it('open page', () => {
 	]);
 });
 
+it('open page + auth', () => {
+	expect(parse(`
+		Открыть страницу "Настроек"
+		Авторизоваться
+	`, ctx)).toTokens([
+		{
+			type: 'page:open',
+			target: '/app/',
+		},
+		{
+			type: 'auth:login',
+			target: 'RANDOM',
+		},
+	]);
+});
+
 it('if exists', () => {
 	expect(parse(`Если есть "Список"`, ctx)).toTokens([
 		{
 			type: 'if:exists',
 			invert: false,
-			target: '#app-list'
+			target: '#app-list',
 		},
 	]);
 });
@@ -79,7 +98,7 @@ it('if empty', () => {
 		{
 			type: 'if:empty',
 			invert: false,
-			target: '#app-list'
+			target: '#app-list',
 		},
 	]);
 });
@@ -89,7 +108,31 @@ it('if exists (invert)', () => {
 		{
 			type: 'if:exists',
 			invert: true,
-			target: '#app-list'
+			target: '#app-list',
+		},
+	]);
+});
+
+it('if condition: "<"', () => {
+	expect(parse(`Если "Число Х" меньше 10`, ctx)).toTokens([
+		{
+			type: 'if:condition',
+			target: '#number-x',
+			invert: false,
+			name: '<',
+			value: '10',
+		},
+	]);
+});
+
+it('if condition: ">="', () => {
+	expect(parse(`Если "Число Х" больше или равно 3`, ctx)).toTokens([
+		{
+			type: 'if:condition',
+			target: '#number-x',
+			invert: false,
+			name: '>=',
+			value: '3',
 		},
 	]);
 });
@@ -225,6 +268,7 @@ it('focus', () => {
 		{
 			type: 'focus:check',
 			target: '[name="title"]',
+			invert: false,
 		},
 	]);
 });
@@ -241,6 +285,7 @@ it('focus with context', () => {
 			nested: [{
 				type: 'focus:check',
 				target: '[name="caption"]',
+				invert: false,
 			}],
 		},
 	]);
@@ -288,7 +333,7 @@ it('wait visible', () => {
 
 it('var inline set', () => {
 	expect(parse(`
-		Запоминаем "ID Приложения" как "clientId"
+		Запоминаем "ID Приложения" как $clientId
 	`, ctx)).toTokens([
 		{
 			type: 'var:set',
@@ -350,6 +395,7 @@ it('group', () => {
 		{
 			type: 'group',
 			name: 'Проверяем созданое приложение',
+			target: null,
 		},
 	]);
 });
@@ -367,6 +413,81 @@ it('exists with context (inline)', () => {
 				target: '#app-list-item[data-id="$clientId"]',
 				invert: false,
 			}],
+		},
+	]);
+});
+
+it('while visible', () => {
+	expect(parse(`Пока есть "Приложения"`, ctx)).toTokens([
+		{
+			type: 'while:visible',
+			target: '#app-list',
+			invert: false,
+		},
+	]);
+
+	expect(parse(`Пока нет "Приложений"`, ctx)).toTokens([
+		{
+			type: 'while:visible',
+			target: '#app-list',
+			invert: true,
+		},
+	]);
+
+	expect(parse(`Пока "Приложений" больше нуля`, ctx)).toTokens([
+		{
+			type: 'while:condition',
+			target: '#app-list',
+			invert: false,
+			name: '>',
+			value: 0,
+		},
+	]);
+});
+
+it('focus move', () => {
+	expect(parse(`Смещаем фокус на 3 tab`, ctx)).toTokens([
+		{
+			type: 'focus:move',
+			value: '3',
+			target: null,
+			invert: false,
+		},
+	]);
+
+	expect(parse(`Возвращаем фокус назад`, ctx)).toTokens([
+		{
+			type: 'focus:move',
+			invert: true,
+			value: '1',
+			target: null,
+		},
+	]);
+
+	expect(parse(`Перемещаем фокус вперед`, ctx)).toTokens([
+		{
+			type: 'focus:move',
+			invert: false,
+			value: '1',
+			target: null,
+		},
+	]);
+});
+
+it('focus check', () => {
+	expect(parse(`Фокус должен быть на "E-mail"`, ctx)).toTokens([
+		{
+			type: 'focus:check',
+			target: '[name="email"]',
+			invert: false,
+		},
+	]);
+
+	expect(parse(`Фокус недолжен быть на поле "E-mail"`, ctx)).toTokens([
+		{
+			type: 'focus:check',
+			target: '[name="email"]',
+			invert: true,
 		},
 	]);
 });

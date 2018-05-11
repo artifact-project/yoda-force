@@ -1,4 +1,4 @@
-import rawRules, {Token} from "./rules";
+import baseRules, {Token, Rules} from "./rules";
 
 export type Context = {
 	[path: string]: {
@@ -9,25 +9,11 @@ export type Context = {
 	};
 };
 
-const compiledRules = Object.entries(rawRules).map(([pattern, exec]) => {
-	const params = [];
+const baseCompiledRules = compileRules(baseRules);
 
-	pattern = pattern
-		.trim()
-		.replace(/\s*\(target\)/g, '(?: "([^"]+)")')
-		.replace(/\s+/g, '\\s+')
-	;
-
-	return {
-		pattern,
-		params,
-		exec,
-		regexp: new RegExp(`^${pattern}`, 'i'),
-	};
-});
-
-export function parse(input: string, context: Context) {
+export function parse(input: string, context: Context, rules: Rules = {}) {
 	const root = [];
+	const parseRules = compileRules(rules).concat(baseCompiledRules);
 	const compiledContext = Object.entries(context).map(([name, values]) => {
 		return {
 			regexp: new RegExp(`^${name
@@ -45,7 +31,11 @@ export function parse(input: string, context: Context) {
 	let parent = null;
 	let parentIndent = 0;
 
-	input.trim().split('\n').forEach(line => {
+	input.split('\n').forEach(line => {
+		if (!line.trim()) {
+			return;
+		}
+
 		let indent = line.match(/^\s*/)[0].length;
 		let inLine = false;
 
@@ -54,8 +44,8 @@ export function parse(input: string, context: Context) {
 			parentIndent = indent;
 		}
 
-		for (let idx = 0; idx < compiledRules.length; idx++) {
-			const rule = compiledRules[idx];
+		for (let idx = 0; idx < parseRules.length; idx++) {
+			const rule = parseRules[idx];
 			const match = line.trim().match(rule.regexp);
 
 			if (match !== null) {
@@ -92,7 +82,7 @@ export function parse(input: string, context: Context) {
 						token.target = parent.target;
 					} else if (token.defaultTarget) {
 						token.target = token.defaultTarget;
-					} else if (token.type !== 'group') {
+					} else if (token.target !== null) {
 						throw new Error(`Unrecognized target for token: ${JSON.stringify(token)}`);
 					}
 
@@ -138,10 +128,29 @@ function findInContext(token, context) {
 		chain.push(token.type.split(':')[0]);
 	}
 
-	console.log(chain);
+	// console.log(chain);
 
 	return (
 		context.find(x => x.regexp.test(chain.join('/'))) ||
 		context.find(x => x.regexp.test('globals'))
 	).entries.find(t => t.regexp.test(target)) || null;
+}
+
+function compileRules(rules: Rules) {
+	return Object.entries(rules || {}).map(([pattern, exec]) => {
+		const params = [];
+
+		pattern = pattern
+			.trim()
+			.replace(/\s*\(target\)/g, '(?: "([^"]+)")')
+			.replace(/\s+/g, '\\s+')
+		;
+
+		return {
+			pattern,
+			params,
+			exec,
+			regexp: new RegExp(`^${pattern}`, 'i'),
+		};
+	})
 }

@@ -1,59 +1,76 @@
 import {parse, Context} from '../parse/parse';
-import {baseActions, Actions, ActionContext} from './actions';
-import {PageContext} from './context';
-import {Token} from '../parse/rules';
+import {baseActions, Actions} from './actions';
+import {PageContext, PageContextConfig} from './context';
+import {Token, Rules} from '../parse/rules';
+import {BrowserAPI} from '../browser/browser';
 
+export type InputValidator = (ctx: PageContext, s: 'valid' | 'invalid') => Promise<boolean>;
 export type YodaForceConfig = {
 	domIdAttr?: string;
-	browser?: WebdriverIO.Client<void>;
+	browser?: BrowserAPI;
 	context: Context;
-	actions?: ActionContext;
+	actions?: Actions;
+	rules?: Rules;
+	validateInput?: InputValidator;
 }
 
-export class YodaForce {
-	domIdAttr = '[data-test-id]';
-
-	browser: WebdriverIO.Client<void> = null;
+export class YodaForce implements YodaForceConfig {
+	domIdAttr: string = 'data-qa-id';
+	rules: Rules = null;
+	browser: BrowserAPI = null;
 	context: Context = null;
 	actions: Actions = null;
+	vars: {[index:string]: string} = {};
+
+	validateInput: InputValidator = () => {
+		throw new Error('YodaForce: "validateInput" must be configured (passed with YodaForceConfig)');
+	};
 
 	constructor(config: YodaForceConfig) {
 		Object.assign(this, config);
 
-		this.actions = Object.entries(config.actions).reduce((map, [key, entries]) => {
+		this.actions = Object.entries(baseActions).reduce((map, [key, entries]) => {
 			map[key] = Object.assign(
-				baseActions[key] || {},
 				entries,
+				map[key] || {},
 			);
 
 			return map;
-		}, {});
+		}, config.actions || {});
 	}
 
-	use(scenario: string) {
-		const page = new PageContext({
-			browser: this.browser,
+	async use(scenario: string, parent: PageContext = null) {
+		const page = parent || new PageContext({
+			force: this,
 			selector: 'body',
+			browser: this.browser,
+			domIdAttr: this.domIdAttr,
 		});
 
-		(function next(nested: Token[] = [], parent: PageContext) {
-			nested.forEach(token => {
+		return (function walk(nested: Token[] = [], parent: PageContext) {
+			let iteration = 0;
+
+			return nested.reduce(function currentTask(queue, token) {
 				const {type, target} = token;
 				const ctx = new PageContext({
 					page,
 					parent,
+					token,
+					force: this,
+					domIdAttr: this.domIdAttr,
 					browser: this.browser,
 					invert: token.invert,
 					selector: target,
 				});
+				let promise = null;
 
 				if (this.actions.hasOwnProperty(type)) {
 					const entries = this.actions[type];
 
 					if (entries.hasOwnProperty(target)) {
-						entries[target](ctx);
+						promise = entries[target](ctx);
 					} else if (entries.hasOwnProperty('*')) {
-						entries['*'](ctx);
+						promise = entries['*'](ctx);
 					} else {
 						throw new Error(`Unrecognized action for target: ${target}, type: ${type}`);
 					}
@@ -61,8 +78,29 @@ export class YodaForce {
 					throw new Error(`Unrecognized action for token type: ${type}`);
 				}
 
-				next(token.nested, ctx);
-			});
-		})(parse(scenario, this.context), page);
+				return queue
+					.then(() => promise)
+					.then(res => {
+						// console.log(type, target, res);
+						if (res !== false) {
+							const p = walk.call(this, token.nested, ctx);
+
+							if (res === 'repeat') {
+								return p.then(() => {
+									if (++iteration > 250) {
+										throw new Error(`Infinity logo (type: ${type}, target: ${target})`);
+									}
+									return currentTask.call(this, Promise.resolve(), token);
+								});
+							} else {
+								return p;
+							}
+						} else {
+							return false;
+						}
+					})
+				;
+			}.bind(this), Promise.resolve());
+		}).call(this, parse(scenario, this.context, this.rules), page);
 	}
 }

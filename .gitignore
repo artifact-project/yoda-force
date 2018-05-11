@@ -56,7 +56,9 @@ typings/
 
 # dotenv environment variables file
 .env
+.idea
 .vscode
+.DS_Store
 
 # NMPy
 .npmyrc

@@ -1,18 +1,8 @@
-export type ActionContext = {
-	readonly invert: boolean;
-	readonly page: null;
-	readonly target: string;
+import {ok} from 'assert';
+import {PageContext} from './context';
+import {Token} from '../parse/rules';
 
-	exists(target?: boolean, invert?: boolean): boolean;
-	visible(target?: boolean, invert?: boolean): boolean;
-
-	wait(target?: boolean, invert?: boolean): void;
-	waitExists(target?: boolean, invert?: boolean): void;
-
-	click(target?: boolean): void;
-}
-
-export type Action = (ctx: ActionContext) => void | boolean;
+export type Action = (ctx: PageContext) => Promise<void | boolean | 'repeat'>;
 
 export type Actions = {
 	[type: string]: {
@@ -21,7 +11,19 @@ export type Actions = {
 	};
 }
 
+const IF_COND_COMPARATOR = {
+	'<': (a, b) => +a < +b,
+	'>': (a, b) => +a > +b,
+	'=': (a, b) => a == b,
+	'<=': (a, b) => +a <= +b,
+	'>=': (a, b) => +a >= +b,
+};
+
 export const baseActions: Actions = {
+	'page:open': {
+		'*': (ctx) => ctx.open(),
+	},
+
 	'if:exists': {
 		'*': (ctx) => ctx.exists(),
 	},
@@ -41,4 +43,65 @@ export const baseActions: Actions = {
 	'click': {
 		'*': (ctx) => ctx.click(),
 	},
+
+	'dom:property': {
+		'*': (ctx) => ctx.waitDOMProperty(),
+	},
+
+	'if:condition': {
+		'*': async (ctx) => {
+			if (await ctx.visible()) {
+				return checkTokenCondition(
+					ctx.token,
+					(await ctx.getDOMPropertyValue('textContent')).trim(),
+				);
+			}
+
+			return false;
+		},
+	},
+
+	'while:visible': {
+		'*': async (ctx) => (await ctx.visible()) ? 'repeat' : false,
+	},
+
+	'focus:move': {
+		'*': (ctx) => ctx.moveFocus(ctx.token.invert ? 'prev' : 'next', +ctx.token.value),
+	},
+
+	'focus:check': {
+		'*': (ctx) => ctx.waitActiveElement(),
+	},
+
+	'value:set': {
+		'*': async (ctx) => {
+			if (ctx.token.required) {
+				await ctx.type('');
+				await ctx.waitValidateInputStatus('invalid');
+			}
+
+			await ctx.type();
+
+			return true;
+		},
+	},
+
+	'value:validate': {
+		'*': (ctx) => ctx.waitValidateInputStatus(ctx.invert ? 'invalid' : 'valid'),
+	},
+
+	'var:set': {
+		'*': async (ctx) => {
+			let val = await ctx.getDOMPropertyValue('textContent');
+			if (val == null) {
+				val = await ctx.getDOMPropertyValue('value');
+			}
+			await ctx.setVar(ctx.token.name, val);
+		},
+	},
 };
+
+export function checkTokenCondition({name, value}: Token, actualValue) {
+	return IF_COND_COMPARATOR[name](actualValue, value);
+
+}

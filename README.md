@@ -14,40 +14,34 @@ const force = new YodaForce({
 		'globals': {
 			'Список контактов': {ctx: 'contacts', loc: '#contacts'},
 		},
+		'while': {
+			'Контактов': '#contacts-count',
+		},
+		'contacts/**/*': {
+			'Удалить': '#contacts #remove',
+		},
 	},
 	actions: {
-		'if:exists': {
-			'#contacts': ({ctx}) => ctx.hasChildren(),
-		},
-
-		'if:empty': {
-			'#contacts': ({ctx}) => ctx.hasChildren(),
-		},
-
 		'remove:all': {
-			'#contacts': ({ctx}) => {
-				while (ctx.has('#edit')) {
-					ctx.click('#edit');
-					ctx.page.wait('#editor');
-					ctx.page.click('#remove');
-					ctx.wait();
-				}
-			}
+			'#contacts': async (ctx) => ctx.useForce(`
+				Пока "Контактов" больше нуля
+					Нажать "Удалить"
+			`),
 		},
 	},
 });
 
-beforeEach(() => force.use(`
+beforeEach(async () => await force.use(`
 	Авторизоваться
 	Открыть страницу "Мои контакты"
-`);
-});
+`));
 
-it(() => force.use(`
-Если "Список контактов" непустой, то удалить все
+it(async () => await force.use(`
+	Если есть "Список контанктов", то удалить все
 `));
 ```
 
+---
 
 ### Development
 
