@@ -1,0 +1,167 @@
+<div data-qa-id="app">
+	<div data-qa-id="empty-list">
+		<button data-qa-id="add-first-color">Add first color</button>
+	</div>
+
+	<div data-qa-id="not-empty-list">
+		<button data-qa-id="add-color">Add color</button>
+		<ul data-qa-id="list"></ul>
+	</div>
+
+	<form data-qa-id="add-form">
+		<input placeholder="Name" name="name" autofocus required/><br/>
+		<input placeholder="Value" name="value"/><br/>
+		<hr/>
+		<input type="submit" data-qa-id="add" name="add" value="Add"/>
+	</form>
+
+	<form data-qa-id="edit-form">
+		Name: <span data-qa-id="name"></span><br/>
+		<input autofocus placeholder="Value" name="value"/><br/>
+		<hr/>
+		<input type="submit" data-qa-id="save" name="save" value="Save"/>
+		<input type="button" data-qa-id="remove" name="remove" value="Remove"/>
+	</form>
+</div>
+
+<script>
+	'use strict';
+
+	const app = byQaId('#app');
+	const emptyListBlock = byQaId('#empty-list', app);
+	const notEmptyListBlock = byQaId('#not-empty-list', app);
+
+	const list = byQaId('#list', app);
+	const addBtn = byQaId('#add-color', app);
+	const addFirstBtn = byQaId('#add-first-color', app);
+	const addForm = byQaId('#add-form', app);
+	const editForm = byQaId('#edit-form', app);
+	let colors = 0;
+
+	(function main() {
+		initEditForm(addForm);
+		initEditForm(editForm);
+
+		addColor('red', '#f00');
+		addColor('blue', '#0f0');
+		addColor('green', '#00f');
+
+		addBtn.onclick = addFirstBtn.onclick = () => {
+			goto('add-form');
+		};
+
+		goto('list');
+	})();
+
+	function byId(id, ctx = document) {
+		return ctx.querySelector(`[data-id="${id}"]`);
+
+	}
+
+	function byQaId(id, ctx = document) {
+		return ctx.querySelector(`[data-qa-id="${id.substr(1)}"]`);
+	}
+
+	function addColor(name, value) {
+		const li = document.createElement('li');
+		const remove = document.createElement('b');
+
+		li.dataset.id = name;
+		remove.style.cursor = 'pointer';
+		remove.style.paddingLeft = '10px';
+		remove.textContent = '[ x ]';
+		remove.dataset.qaId = 'remove';
+		remove.classList.add('remove');
+		remove.onclick = (evt) => {
+			evt.preventDefault();
+			removeClolor(name);
+		};
+
+		li.appendChild(document.createTextNode(value));
+		li.appendChild(remove);
+		li.onclick = (evt) => {
+			!evt.defaultPrevented && editColor(name);
+		}
+
+		list.appendChild(li);
+
+		colors++;
+	}
+
+	function editColor(name, value) {
+		byQaId('#name', editForm).textContent = name;
+		editForm.value.value = byId(name, list).firstChild.nodeValue;
+		editForm.value.dispatchEvent(new Event('input', {bubbles: true}));
+		goto('edit-form');
+	}
+
+	function saveColor(name, value) {
+		byId(name, list).firstChild.nodeValue = value;
+
+	}
+	function removeClolor(name) {
+		list.removeChild(byId(name, list));
+		colors--;
+		goto('list');
+	}
+
+	function goto(name) {
+		display(emptyListBlock, name === 'list' && !colors);
+		display(notEmptyListBlock, name === 'list' && colors);
+
+		display(addForm, name === 'add-form');
+		display(editForm, name === 'edit-form');
+	}
+
+	function display(el, state) {
+		el.style.display = state ? '' : 'none';
+	}
+
+	function initEditForm(form, data) {
+		let {
+			// Inputs
+			name = byQaId('#name', form),
+			value,
+
+			// Buttons
+			add,
+			save,
+			remove,
+		} = form.elements;
+		let valid;
+
+		function validate() {
+			valid = true;
+
+			[value].concat(add ? name : []).forEach(el => {
+				valid = valid && (el.value.length > 2);
+				el.classList.toggle('invalid', el.value.length > 2);
+
+				add && (add.disabled = !valid);
+				save && (save.disabled = !valid);
+			});
+		}
+
+		form.oninput = validate;
+		form.onsubmit = (evt) => {
+			evt.preventDefault();
+			if (valid) {
+				if (save) {
+					saveColor(name.textContent, value.value);
+				} else {
+					addColor(name.value, value.value);
+				}
+
+				goto('list');
+			}
+		};
+		validate();
+
+		if (remove) {
+			remove.onclick = () => {
+				removeClolor(name.textContent);
+				goto('list');
+			};
+		}
+	}
+</script>

@@ -1,6 +1,8 @@
 import * as diff from 'jest-diff';
 import {Token} from '../src/parse/rules';
 
+jasmine.DEFAULT_TIMEOUT_INTERVAL = 60 * 1e3;
+
 function clean(tokens: Token[] | Token) {
 	if (Array.isArray(tokens)) {
 		return tokens.map(clean);

@@ -1,4 +1,5 @@
 import {parse} from './parse';
+import { verbose } from '../verbose';
 
 const ctx = {
 	'globals': {
@@ -58,9 +59,14 @@ const ctx = {
 	},
 };
 
+beforeEach(() => {
+	verbose.set(true);
+})
+
 it('open page', () => {
 	expect(parse(`Открыть страницу "Настроек"`, ctx)).toTokens([
 		{
+			ctx: 'page',
 			type: 'page:open',
 			target: '/app/',
 		},
@@ -73,6 +79,7 @@ it('open page + auth', () => {
 		Авторизоваться
 	`, ctx)).toTokens([
 		{
+			ctx: 'page',
 			type: 'page:open',
 			target: '/app/',
 		},
@@ -114,15 +121,23 @@ it('if exists (invert)', () => {
 });
 
 it('if condition: "<"', () => {
-	expect(parse(`Если "Число Х" меньше 10`, ctx)).toTokens([
+	const tokens = parse(`Если "Число Х" меньше 10`, ctx);
+
+	expect(tokens).toTokens([
 		{
 			type: 'if:condition',
 			target: '#number-x',
 			invert: false,
 			name: '<',
 			value: '10',
+			nested: [{type: '#NULL'}],
 		},
 	]);
+
+	expect(tokens[0].description).toEqual({
+		full: 'Если "Число Х" меньше 10',
+		part: 'Если "Число Х"',
+	});
 });
 
 it('if condition: ">="', () => {
@@ -133,6 +148,7 @@ it('if condition: ">="', () => {
 			invert: false,
 			name: '>=',
 			value: '3',
+			nested: [{type: '#NULL'}],
 		},
 	]);
 });
@@ -266,6 +282,7 @@ it('focus', () => {
 		Фокус должен быть на поле "Название"
 	`, ctx)).toTokens([
 		{
+			ctx: 'field',
 			type: 'focus:check',
 			target: '[name="title"]',
 			invert: false,
@@ -283,6 +300,7 @@ it('focus with context', () => {
 			type: 'wait:visible',
 			target: '#no-exit',
 			nested: [{
+				ctx: 'field',
 				type: 'focus:check',
 				target: '[name="caption"]',
 				invert: false,
@@ -314,6 +332,7 @@ it('value set (required)', () => {
 			target: '[name="email"]',
 			required: true,
 			value: 'Foo',
+			nested: [{type: '#NULL'}],
 		},
 	]);
 });
@@ -409,9 +428,11 @@ it('exists with context (inline)', () => {
 			type: 'wait:exists',
 			target: '#app-list',
 			nested: [{
+				ctx: null,
 				type: 'wait:visible',
 				target: '#app-list-item[data-id="$clientId"]',
 				invert: false,
+				nested: [{type: '#NULL'}],
 			}],
 		},
 	]);

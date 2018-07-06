@@ -2,14 +2,17 @@ import {YodaForce} from './force';
 import {Token} from '../parse/rules';
 import {PuppeteerBrowser} from '../browser/puppeteer';
 import {checkTokenCondition} from './actions';
+import {PageContext} from './context';
 
 const norm = (s) => s.replace(/#([^\s]+)/g, (_, id) => `[data-qa-id="${id}"]`);
 const log = [];
+const stepsLog = [];
 const browser = new PuppeteerBrowser({timeout: 1000});
-const force = new YodaForce({
+const force = new YodaForce(Object.assign({
 	browser,
 	validateInput: async (ctx, s) => {
-		const invalid = /invalid/.test(await ctx.getDOMPropertyValue('className'));
+		const classes = await ctx.getDOMPropertyValue('className');
+		const invalid = /invalid/.test(classes);
 		return s === 'invalid' && invalid || s === 'valid' && !invalid;
 	},
 	rules: {
@@ -102,10 +105,34 @@ const force = new YodaForce({
 			`),
 		},
 	},
-});
+}, (function () {
+	let indent = '';
+	let steps = [];
+
+	return {
+		onactionstart: (err, ctx: PageContext) => {
+			const promise = new Promise((resolve, reject) => {
+				steps.push({
+					resolve,
+					reject,
+				});
+				stepsLog.push(`${indent}${ctx.token.description.full}`);
+				indent = `${indent}  `;
+			});
+
+			promise.then(
+				() => indent = indent.substr(2),
+			);
+		},
+		onactionend: (err) => {
+			steps.pop()[err ? 'reject' : 'resolve'](err);
+		},
+	}
+})()));
 
 beforeEach(() => {
 	log.length = 0;
+	stepsLog.length = 0;
 });
 
 afterAll(async () => {
@@ -134,6 +161,8 @@ it('force.use: wait + disbaled', async () => {
 		Дождаться "Список контактов"
 			Кнопка "Добавить" должна быть активной
 	`);
+
+	expect(stepsLog).toEqual([]);
 });
 
 it('force.use: if + exists (>=1)', async () => {

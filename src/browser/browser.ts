@@ -13,6 +13,7 @@ export interface BrowserAPI {
 	moveFocus(direct: 'next' | 'prev'): Promise<boolean>;
 	isActiveElement(selector: string): Promise<boolean>;
 	type(selector: string, value: string): Promise<boolean>;
+	getValue(selector: string): Promise<string>;
 }
 
 export interface BrowserConfig {

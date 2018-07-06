@@ -28,6 +28,13 @@ export const baseActions: Actions = {
 		'*': (ctx) => ctx.exists(),
 	},
 
+	'if:empty': {
+		'*': async (ctx) => {
+			const count = await ctx.childElementCount();
+			return ctx.invert ? count > 0 : !count;
+		},
+	},
+
 	'if:visible': {
 		'*': (ctx) => ctx.visible(),
 	},
@@ -66,7 +73,7 @@ export const baseActions: Actions = {
 	},
 
 	'focus:move': {
-		'*': (ctx) => ctx.moveFocus(ctx.token.invert ? 'prev' : 'next', +ctx.token.value),
+		'*': (ctx) => ctx.moveFocus(ctx.invert ? 'prev' : 'next', +ctx.token.value),
 	},
 
 	'focus:check': {
@@ -84,6 +91,10 @@ export const baseActions: Actions = {
 
 			return true;
 		},
+	},
+
+	'value:required': {
+		'*': async (ctx) => ctx.inputMustBeRequire(),
 	},
 
 	'value:validate': {

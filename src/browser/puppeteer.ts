@@ -34,7 +34,7 @@ export class PuppeteerBrowser implements BrowserAPI, BrowserConfig {
 		return (await this.page).content();
 	}
 
-	async setContent(html) {
+	async setContent(html: string) {
 		return (await this.page).setContent(html).then(() => true);
 	}
 
@@ -53,7 +53,7 @@ export class PuppeteerBrowser implements BrowserAPI, BrowserConfig {
 	}
 
 	async $(selector) {
-		return (await this.page).$(selector)
+		return (await this.page).$(selector);
 	}
 
 	async waitForExists(selector, invert = false, ms = this.timeout): Promise<boolean> {
@@ -78,7 +78,7 @@ export class PuppeteerBrowser implements BrowserAPI, BrowserConfig {
 	}
 
 	async visible(selector, invert = false): Promise<boolean> {
-		return this.waitForVisible(selector, invert, 5).catch(() => false);
+		return this.waitForVisible(selector, invert, 1000).catch(() => false);
 	}
 
 	async getProperty(selector, name, fromParent?) {
@@ -95,8 +95,9 @@ export class PuppeteerBrowser implements BrowserAPI, BrowserConfig {
 	}
 
 	async click(selector) {
-		await (await this.page).click(selector);
-		return true;
+		return (await this.page).click(selector).then(() => true, (err) => {
+			throw new Error(`Unable to click on "${selector}"\n${err.message}`);
+		});
 	}
 
 	async childElementCount(selector) {
@@ -138,6 +139,11 @@ export class PuppeteerBrowser implements BrowserAPI, BrowserConfig {
 	async type(selector: string, value: string) {
 		await (await this.page).type(selector, value, {delay: 25});
 		return true;
+	}
+
+	async getValue(selector: string) {
+		const value = await this.getProperty(selector, 'value');
+		return value == null ? '' : value.toString();
 	}
 }
 

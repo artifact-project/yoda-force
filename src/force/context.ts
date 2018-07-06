@@ -31,7 +31,7 @@ export class PageContext {
 		Object.assign(this, config);
 	}
 
-	private __$(target?: string): string {
+	__$(target?: string): string {
 		let selector = this.selector;
 		let ctx: PageContext = this;
 
@@ -39,14 +39,18 @@ export class PageContext {
 			selector = selector === 'body' ? target : `${selector} ${target}`;
 		}
 
-		while (selector.includes('&') && (ctx = ctx.parent)) {
-			selector = selector.replace('&', ctx.selector);
-		}
+		// while (selector.includes('&') && (ctx = ctx.parent)) {
+		// 	selector = selector.replace('&', ctx.selector);
+		// }
 
 		return selector
 			.replace(/#([^\[\s]+)(\[.*?$)?/g, `[${this.domIdAttr}="$1"]$2`)
 			.replace(/\$([a-zа-я0-9_-]+)/i, (_, name) => this.force.vars[name])
 		;
+	}
+
+	errTxt(txt: string) {
+		return `${txt}\n${this.token ? this.token.description.full : ''}`.trim()
 	}
 
 	async useForce(scenario: string) {
@@ -73,7 +77,7 @@ export class PageContext {
 		const selector = this.__$(target);
 		ok(
 			await this.browser.waitForVisible(selector, invert),
-			`'${selector}' must be ${invert ? 'hidden' : 'visible'}`,
+			this.errTxt(`'${selector}' must be ${invert ? 'hidden' : 'visible'}`),
 		);
 		return true;
 	}
@@ -82,7 +86,7 @@ export class PageContext {
 		const selector = this.__$(target);
 		ok(
 			await this.browser.waitForExists(selector, invert),
-			`'${selector}' must be ${invert ? 'not' : ''} exists`,
+			this.errTxt(`'${selector}' must be ${invert ? 'not ' : ''}exists`),
 		);
 		return true;
 	}
@@ -105,7 +109,7 @@ export class PageContext {
 		equal(
 			actualState,
 			state,
-			`DOM Property "${name}" for "${selector}" must be "${state}", but not "${actualState}"`,
+			this.errTxt(`DOM Property "${name}" for "${selector}" must be "${state}", but not "${actualState}"`),
 		);
 
 		return true;
@@ -149,7 +153,7 @@ export class PageContext {
 		const selector = this.__$(target);
 		ok(
 			await this.browser.isActiveElement(selector),
-			`"${selector}" is not active element`,
+			this.errTxt(`"${selector}" is not active element`),
 		);
 		return true;
 	}
@@ -165,15 +169,42 @@ export class PageContext {
 		return true;
 	}
 
+	async getValue(target?: string) {
+		return this.browser.getValue(this.__$(target));
+	}
+
+	async pause(ms: number) {
+		return new Promise<boolean>(resolve => {
+			setTimeout(() => {
+				resolve(true);
+			}, ms);
+		})
+	}
+
 	async waitValidateInputStatus(s: 'valid' | 'invalid') {
-		const needBlur = await this.browser.isActiveElement(this.__$());
+		const selector = this.__$()
+		const needBlur = await this.browser.isActiveElement(selector);
 
 		needBlur && (await this.browser.moveFocus('next'));
+		await this.pause(500);
+
+		const state = await this.force.validateInput(this, s);
+
 		ok(
-			await this.force.validateInput(this, s),
-			`"${this.__$()}" must be ${s}`,
+			state === (s === 'valid'),
+			this.errTxt(`"${selector}" must be "${s}" (invalid: ${state})`),
 		);
+
 		needBlur && (await this.browser.moveFocus('prev'));
+
+		return true;
+	}
+
+	async inputMustBeRequire() {
+		ok(
+			await this.force.getInputRequiredState(this),
+			this.errTxt(`"${this.__$()}" must be required`),
+		);
 
 		return true;
 	}

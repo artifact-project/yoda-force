@@ -113,4 +113,8 @@ export class WebdriveBrowser implements BrowserAPI, BrowserConfig {
 		this.page.setValue(selector, value);
 		return true;
 	}
+
+	async getValue(selector: string) {
+		return this.page.getValue(selector);
+	}
 }
